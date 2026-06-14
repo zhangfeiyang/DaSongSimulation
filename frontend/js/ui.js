@@ -207,6 +207,7 @@ const UI = {
         <span class="bb-i">税收 +${b.income}</span>
         <span class="bb-e">军费 −${b.upkeep}</span>
         <span class="bb-e">行政 −${b.admin}</span>
+        ${b.court > 0 ? `<span class="bb-e" title="国库充盈则宫廷营造、赏赐、奢靡渐增">宫廷 −${b.court}</span>` : ''}
       </div>${warn}</div>`;
   },
 

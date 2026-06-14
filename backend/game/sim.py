@@ -18,7 +18,9 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 # ---- 经济参数(一回合=一年；校准使北宋开局年年有结余) ----
 TAX_K = 60.0       # 年税收 = 经济指数 × TAX_K   (万贯/年)  宋经济100→约6000万贯/年
 UPKEEP_K = 30.0    # 年军费 = 兵力 × UPKEEP_K × 武器系数
-ADMIN_K = 0.14     # 年行政/百官俸禄 = 人口(万) × ADMIN_K
+ADMIN_K = 0.18     # 年行政/百官俸禄 = 人口(万) × ADMIN_K（北宋"冗官冗费"，开支不轻）
+COURT_BASE = 8000.0  # 国库超过此数后，宫廷营造/赏赐/奢靡按比例消耗，抑制无限囤积
+COURT_RATE = 0.11    # 超额国库每年约 11% 化为宫廷靡费（软上限）
 BANKRUPT = 0.0     # 国库 ≤ 此值视为破产
 
 
@@ -42,13 +44,14 @@ QUALITY = _mil_quality()
 
 
 def budget(s: dict) -> dict:
-    """某势力本月的收支明细(万贯)。"""
+    """某势力本年的收支明细(万贯)。"""
     income = s["economy"] * TAX_K
     upkeep = s["army"] * UPKEEP_K * weapon_factor(s["tech"])
     admin = s["population"] * ADMIN_K
-    net = income - upkeep - admin
+    court = max(0.0, s["treasury"] - COURT_BASE) * COURT_RATE   # 宫廷靡费（软上限）
+    net = income - upkeep - admin - court
     return {"income": round(income, 1), "upkeep": round(upkeep, 1),
-            "admin": round(admin, 1), "net": round(net, 1)}
+            "admin": round(admin, 1), "court": round(court, 1), "net": round(net, 1)}
 
 
 def expected_military(key: str, s: dict) -> float:
@@ -94,9 +97,12 @@ def _natural_dynamics(s: dict) -> None:
     g = 0.004 * (w / 60.0) * (st / 60.0) - (0.012 if bankrupt else 0.0)
     s["population"] = max(5.0, round(s["population"] * (1 + _clamp(g, -0.03, 0.012)), 1))
 
-    potential = (s["population"] ** 0.5) * (0.6 + 0.012 * s["tech"])
-    rate = 0.045 * (0.3 + 0.7 * st / 60.0)          # 政局越稳越快，但保留 30% 下限以脱困
-    s["economy"] = max(0.0, round(s["economy"] + (potential - s["economy"]) * _clamp(rate, 0, 0.06), 2))
+    potential = (s["population"] ** 0.5) * (0.5 + 0.009 * s["tech"])
+    diff = potential - s["economy"]
+    # 低于潜力则缓慢补涨(政局越稳越快、保 30% 下限以脱困)；高于潜力则较快回落
+    # ——经济无法长期超越其人口/科技所支撑的结构性潜力，靠政策硬堆的虚高会逐年消退。
+    rate = (0.03 * (0.3 + 0.7 * st / 60.0)) if diff >= 0 else 0.06
+    s["economy"] = max(0.0, round(s["economy"] + diff * _clamp(rate, 0, 0.08), 2))
 
     heal = 0.03 if not bankrupt else 0.01
     s["stability"] = round(st + (50 - st) * heal, 2)
