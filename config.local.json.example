@@ -1,0 +1,10 @@
+{
+  "llm": {
+    "provider": "mock",
+    "model": "claude-opus-4-7",
+    "api_key": "",
+    "base_url": "",
+    "temperature": 0.8,
+    "max_tokens": 4096
+  }
+}

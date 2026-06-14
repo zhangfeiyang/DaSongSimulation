@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>大宋模拟器 · Da Song Simulator</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23b3261e'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23f4ecd8' font-family='serif'%3E宋%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top bar -->
+    <header id="topbar">
+      <div class="brand">
+        <span class="seal">宋</span>
+        <div class="brand-text">
+          <h1>大宋模拟器</h1>
+          <span class="reign" id="reign">熙宁元年 · 公元1068年</span>
+        </div>
+      </div>
+      <div class="topstats" id="topstats"><!-- filled by JS --></div>
+      <div class="topactions">
+        <span class="provider-badge" id="providerBadge" title="当前推演引擎">引擎: --</span>
+        <button class="btn ghost" id="btnVideo" title="把每回合的世界状况渲染成一段演化视频(mp4)">🎬 演化视频</button>
+        <button class="btn ghost" id="btnSaves">💾 存档</button>
+        <button class="btn ghost" id="btnConfig">⚙ 设置</button>
+        <button class="btn ghost" id="btnReset">⟲ 重开</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Map -->
+      <section id="mapcol">
+        <div id="map"></div>
+        <div id="maplegend" class="legend"></div>
+        <div id="tooltip" class="map-tip" hidden></div>
+      </section>
+
+      <!-- Right panel -->
+      <aside id="panel">
+        <nav class="tabs">
+          <button class="tab active" data-tab="state">国情</button>
+          <button class="tab" data-tab="powers">列国</button>
+          <button class="tab" data-tab="tech">科技</button>
+          <button class="tab" data-tab="policy">政策</button>
+          <button class="tab" data-tab="chronicle">史册</button>
+        </nav>
+
+        <div class="tab-body">
+          <!-- 国情 -->
+          <div class="tabpane active" id="pane-state"></div>
+          <!-- 列国 -->
+          <div class="tabpane" id="pane-powers"></div>
+          <!-- 科技 -->
+          <div class="tabpane" id="pane-tech"></div>
+          <!-- 政策 -->
+          <div class="tabpane" id="pane-policy">
+            <h3 class="pane-h">本年可选之策</h3>
+            <div id="optionList" class="option-list"></div>
+            <h3 class="pane-h">皇帝亲拟诏令</h3>
+            <textarea id="policyText" placeholder="例如：推行青苗法以抑兼并；遣使聘辽修澶渊之好；增市舶司广海贸之利……&#10;可自由输入任意政策，推演会权衡其难度与后果(一回合=一年)。"></textarea>
+            <div id="engineNotice" class="engine-notice"></div>
+            <button class="btn primary big" id="btnRunTurn">⊳ 推演本年（前进一年）</button>
+            <div id="turnStatus" class="turn-status"></div>
+            <h3 class="pane-h">现行国策 · 持续生效</h3>
+            <div id="activePolicies" class="active-policies"></div>
+          </div>
+          <!-- 史册 -->
+          <div class="tabpane" id="pane-chronicle"></div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Narrative drawer -->
+    <div id="narrativeDrawer" class="drawer" hidden>
+      <div class="drawer-inner">
+        <div class="drawer-head">
+          <h2 id="narrTitle">推演结果</h2>
+          <div class="drawer-head-btns">
+            <button class="btn ghost lang-toggle" id="narrLang" title="文言 / 白话 切换">白话译文</button>
+            <button class="btn ghost" id="narrClose">✕</button>
+          </div>
+        </div>
+        <div id="narrBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saves modal -->
+  <div id="savesModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>存档 · 读档</h2>
+      <p class="muted">保存当前棋局（含所有回合状态与史册），或读取/删除历史存档。重开不会清除存档。</p>
+      <div class="save-new">
+        <input id="saveName" placeholder="存档名（留空自动取时间）" />
+        <button class="btn primary" id="btnDoSave">＋ 保存当前进度</button>
+      </div>
+      <div id="savesList" class="saves-list"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="savesClose">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- War modal -->
+  <div id="warModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2 id="warTitle">出兵</h2>
+      <div class="muted" id="warInfo"></div>
+      <label>投入兵力（万）<input id="warCommit" type="number" min="1" step="5" /></label>
+      <label>战役强度
+        <select id="warIntensity">
+          <option value="raid">袭扰（小损耗）</option>
+          <option value="battle">会战（常规）</option>
+          <option value="allout">决战（伤亡惨重，速分胜负）</option>
+        </select>
+      </label>
+      <div id="warEstimate" class="war-est"></div>
+      <div id="warReport" class="war-report"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="warClose">关闭</button>
+        <button class="btn primary" id="warConfirm">⚔ 出兵</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Peace modal -->
+  <div id="peaceModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2 id="peaceTitle">议和</h2>
+      <p class="muted" id="peaceInfo"></p>
+      <label>谁向谁割地赔款
+        <select id="peacePays">
+          <option value="enemy">大宋战胜：对方割地赔款</option>
+          <option value="song">大宋战败：大宋割地赔款</option>
+        </select>
+      </label>
+      <label>割地比例（%，按面积，直接改地图）<input id="peaceCede" type="number" min="0" max="90" step="5" /></label>
+      <label>赔款（万贯，改两国国库）<input id="peaceIndem" type="number" min="0" step="50" /></label>
+      <div class="modal-actions">
+        <button class="btn ghost" id="peaceCancel">取消</button>
+        <button class="btn primary" id="peaceConfirm">达成议和</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config modal -->
+  <div id="configModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>推演引擎设置</h2>
+      <p class="muted">支持 OpenAI 兼容接口与 Anthropic 接口。留空或选择「离线推演」即可无密钥试玩。</p>
+      <label>引擎类型
+        <select id="cfgProvider">
+          <option value="mock">离线推演（无需密钥）</option>
+          <option value="anthropic">Anthropic（Claude 格式）</option>
+          <option value="openai">OpenAI 兼容（OpenAI/DeepSeek/本地模型…）</option>
+        </select>
+      </label>
+      <label>模型名 <input id="cfgModel" placeholder="如 claude-opus-4-7 / gpt-4o / deepseek-chat" /></label>
+      <label>API Key <input id="cfgKey" type="password" placeholder="留空表示不修改已存密钥" /></label>
+      <label>Base URL（可选） <input id="cfgBase" placeholder="如 https://api.deepseek.com/v1，官方默认可留空" /></label>
+      <div class="row2">
+        <label>temperature <input id="cfgTemp" type="number" step="0.1" min="0" max="2" /></label>
+        <label>max_tokens <input id="cfgMaxTok" type="number" step="256" min="512" /></label>
+        <label>超时(秒) <input id="cfgTimeout" type="number" step="30" min="30" title="推理模型(如 glm/DeepSeek-R1)较慢，可调大；为流式传输的两块数据之间的最大等待间隔" /></label>
+      </div>
+      <p class="muted">提示：使用「推理模型」（思考较久）时，整次推演可能耗时较长（已用流式传输避免超时），请耐心等待，或调大超时。</p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="cfgCancel">取消</button>
+        <button class="btn primary" id="cfgSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

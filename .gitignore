@@ -1,0 +1,8 @@
+backend/.venv/
+data/game.db
+data/game.db-*
+data/factions.geojson
+data/evolution.mp4
+config.local.json
+__pycache__/
+*.pyc
