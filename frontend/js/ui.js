@@ -15,12 +15,12 @@ const UI = {
   MONTHS: ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '腊'],
 
   STATS_MAIN: [
-    { k: 'economy', label: '经济', max: 120, unit: '' },
+    { k: 'economy', label: '经济', max: 250, unit: '' },
     { k: 'tech', label: '科技', max: 100, unit: '' },
-    { k: 'military', label: '军力', max: 100, unit: '' },
+    { k: 'military', label: '军力', max: 130, unit: '' },
     { k: 'stability', label: '政治稳定', max: 100, unit: '' },
     { k: 'welfare', label: '民生', max: 100, unit: '' },
-    { k: 'army', label: '兵力', max: 150, unit: '万' },
+    { k: 'army', label: '兵力', max: 260, unit: '万' },
   ],
 
   reign(year) {
