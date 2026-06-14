@@ -121,6 +121,10 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
         if delta.get("note"):
             s["note"] = str(delta["note"])[:160]
 
+    # (2.5) 列国自主异动：外交向天然立场回归 + 敌对强邻寇边劫掠。
+    from game import world
+    world_events = world.world_react(new_states, PLAYER_FACTION)
+
     # (3) 确定性经济/军事结算（所有势力）：国库收支、军力量化、破产连锁。
     sim_info = sim.apply_monthly(new_states, PLAYER_FACTION)
 
@@ -147,7 +151,7 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
     conn.commit()
     conn.close()
 
-    events = result.get("events", []) or []
+    events = (result.get("events", []) or []) + (world_events or [])
     options = result.get("options", []) or []
     narrative = result.get("narrative", "") or ""
     narrative_plain = result.get("narrative_plain", "") or ""
