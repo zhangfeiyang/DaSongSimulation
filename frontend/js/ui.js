@@ -630,12 +630,14 @@ const UI = {
       const items = t.techs.filter(x => x.era === era).map(x => {
         let cls = x.status === 'done' ? 'done' : (x.status === 'available' ? 'avail' : 'locked');
         if (x.id === t.current) cls += ' current';
+        if (x.exclusive_info) cls += ' excluded';
         const tag = x.status === 'done' ? '✓已研' : (x.id === t.current ? '研究中'
           : (x.status === 'available' ? '可研 ' + x.cost : '🔒' + x.cost));
+        const exclNote = x.exclusive_info ? `<div class="tc-excl">${x.exclusive_info}</div>` : '';
         return `<div class="tech-card ${cls}" data-id="${x.id}" data-status="${x.status}">
           <div class="tc-top"><span class="tc-name">${x.name}</span><span class="tc-tag">${tag}</span></div>
           <div class="tc-blurb">${x.blurb}</div>
-          <div class="tc-eff">效果：${effStr(x.effect)}</div></div>`;
+          <div class="tc-eff">效果：${effStr(x.effect)}</div>${exclNote}</div>`;
       }).join('');
       return `<div class="tech-era"><div class="tech-era-h">${era}</div><div class="tech-grid">${items}</div></div>`;
     }).join('');

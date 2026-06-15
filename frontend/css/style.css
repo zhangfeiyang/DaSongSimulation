@@ -220,12 +220,14 @@ button { font-family: inherit; cursor: pointer; }
 .tech-card.avail { cursor: pointer; background: #fff8e8; border-color: var(--gold-2); }
 .tech-card.avail:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
 .tech-card.locked { opacity: .55; }
+.tech-card.excluded { opacity: .35; border-style: dashed; }
 .tech-card.current { box-shadow: inset 0 0 0 2px var(--vermilion); }
 .tc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
 .tc-name { font-weight: 700; font-size: 13.5px; }
 .tc-tag { font-size: 10.5px; color: var(--gold-2); white-space: nowrap; }
 .tc-blurb { font-size: 11.5px; color: var(--ink-soft); line-height: 1.45; margin: 3px 0; }
 .tc-eff { font-size: 11px; color: var(--jade); }
+.tc-excl { font-size: 10.5px; color: var(--bad); margin-top: 3px; font-style: italic; }
 
 /* 现行国策 ledger */
 .active-policies { display: flex; flex-direction: column; gap: 8px; }
