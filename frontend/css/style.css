@@ -251,6 +251,10 @@ button { font-family: inherit; cursor: pointer; }
 }
 .option:hover { border-color: var(--gold-2); }
 .option.checked { border-color: var(--vermilion); background: rgba(179,38,30,.07); box-shadow: inset 0 0 0 1px var(--vermilion); }
+.option.opt-urg-high { border-color: #d06a1a; background: rgba(208,106,26,.06); }
+.option.opt-urg-high.checked { border-color: var(--vermilion); background: rgba(179,38,30,.07); }
+.urg-tag { font-size: 10px; color: #fff; background: #d06a1a; border-radius: 6px; padding: 0 5px; margin-right: 4px; vertical-align: 1px; font-weight: 700; }
+.urg-tag.high { background: var(--vermilion); }
 .option input { margin-top: 3px; }
 .option .ot { font-weight: 700; }
 .option .od { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }

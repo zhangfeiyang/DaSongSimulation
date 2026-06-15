@@ -304,11 +304,15 @@ const UI = {
   renderPolicyOptions() {
     const opts = (this.state.last_turn && this.state.last_turn.options) || this.defaultOptions();
     const list = document.getElementById('optionList');
-    list.innerHTML = opts.map((o, i) => `
-      <label class="option" data-i="${i}">
+    list.innerHTML = opts.map((o, i) => {
+      const urgency = o.urgency || 'medium';
+      const urgCls = urgency === 'high' ? 'opt-urg-high' : urgency === 'low' ? 'opt-urg-low' : '';
+      const urgTag = urgency === 'high' ? '<span class="urg-tag high">急</span>' : '';
+      return `<label class="option ${urgCls}" data-i="${i}">
         <input type="checkbox" value="${(o.title || '').replace(/"/g, '&quot;')}" />
-        <div><div class="ot">${o.title || ''}</div><div class="od">${o.desc || ''}</div></div>
-      </label>`).join('');
+        <div><div class="ot">${urgTag}${o.title || ''}</div><div class="od">${o.desc || ''}</div></div>
+      </label>`;
+    }).join('');
     list.querySelectorAll('.option').forEach(op => {
       const cb = op.querySelector('input');
       op.onclick = (e) => { if (e.target !== cb) cb.checked = !cb.checked; op.classList.toggle('checked', cb.checked); };
@@ -480,12 +484,12 @@ const UI = {
     });
   },
 
-  // 文言 / 白话 切换
+  // 文言 / 白话 切换（已移除 narrative_plain——近臣奏报口吻即是最终版）
   langLabel() { return this.lang === 'plain' ? '看文言' : '白话译文'; },
   narrText(obj) {
     if (!obj) return '';
-    if (this.lang === 'plain') return obj.narrative_plain || obj.narrative || '';
-    return obj.narrative || obj.narrative_plain || '';
+    // narrative 本身就是近臣奏报，兼具沉浸与可读性
+    return obj.narrative || '';
   },
   toggleLang() {
     this.lang = this.lang === 'plain' ? 'classic' : 'plain';
@@ -497,8 +501,7 @@ const UI = {
   showNarrative(res) {
     this.lastRes = res;
     document.getElementById('narrLang').textContent = this.langLabel();
-    const tag = this.lang === 'plain' ? '白话' : '文言';
-    document.getElementById('narrTitle').textContent = `${this.reign(res.year)}（公元${res.year}年） · 推演纪事〔${tag}〕`;
+    document.getElementById('narrTitle').textContent = `${this.reign(res.year)}（公元${res.year}年） · 推演纪事`;
     const evs = (res.events || []).map(e => `<li>${e}</li>`).join('');
     const chips = Object.entries(res.changes || {}).map(([k, d]) => {
       const f = this.fac(k); const name = f ? f.name : k;

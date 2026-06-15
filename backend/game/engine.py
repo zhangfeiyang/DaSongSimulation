@@ -194,9 +194,9 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
     events = (result.get("events", []) or []) + (world_events or [])
     options = result.get("options", []) or []
     narrative = result.get("narrative", "") or ""
-    narrative_plain = result.get("narrative_plain", "") or ""
+    # narrative_plain 已移除——文言本身就是游戏独特卖点，近臣奏报口吻已足够沉浸
 
-    st.write_turn_log(next_turn, year, month, policy, narrative, narrative_plain,
+    st.write_turn_log(next_turn, year, month, policy, narrative, narrative,
                       events, options, cfg.provider)
 
     # update the 现行国策 ledger: add new standing policies, retire ended ones
@@ -223,7 +223,6 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
         "provider": cfg.provider,
         "policy": policy,
         "narrative": narrative,
-        "narrative_plain": narrative_plain,
         "events": events,
         "options": options,
         "difficulty": result.get("difficulty", ""),
