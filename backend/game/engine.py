@@ -66,6 +66,74 @@ def _build_delta_breakdown(ongoing: dict, changes: dict,
     return breakdown
 
 
+# ---- 历史关口与里程碑 ----
+
+# 里程碑定义：(id, 名称, 条件函数, 描述)
+# 条件函数接收 (turn, year, song_state) 返回 True/False
+MILESTONES = [
+    ("first_reform", "变法肇始", lambda t, y, s: t >= 1,
+     "颁布新政，开启变法图强之路"),
+    ("economy_120", "经济繁荣", lambda t, y, s: s.get("economy", 0) >= 120,
+     "经济指数突破120，国力蒸蒸日上"),
+    ("military_80", "军威远扬", lambda t, y, s: s.get("military", 0) >= 80,
+     "军力指数突破80，足以与强敌争锋"),
+    ("tech_90", "科技昌明", lambda t, y, s: s.get("tech", 0) >= 90,
+     "科技指数突破90，文明进入新纪元"),
+    ("treasury_20k", "府库充盈", lambda t, y, s: s.get("treasury", 0) >= 20000,
+     "国库突破两万万贯，天下首富"),
+    ("stability_80", "海宇清平", lambda t, y, s: s.get("stability", 0) >= 80,
+     "政治稳定突破80，四海升平"),
+    ("half_century", "半世经营", lambda t, y, s: t >= 50,
+     "在位五十年，堪称盛世"),
+    ("century", "百年基业", lambda t, y, s: t >= 100,
+     "在位百年，千古一帝"),
+]
+
+# 历史关口（bad ending 触发条件）
+CRISIS_CHECKS = [
+    # 靖康之变：1127年(第59回合)前后，若军力不足且辽/金强盛
+    (59, 1127, "靖康之危",
+     lambda s: s.get("military", 0) < 40 and s.get("army", 0) < 50,
+     "陛下，金兵铁骑南下，汴京岌岌可危！军力不足、边防废弛，恐重蹈靖康之覆辙！"),
+    # 亡国：稳定度归零
+    (0, 0, "社稷倾覆",
+     lambda s: s.get("stability", 0) <= 5 and s.get("welfare", 0) <= 5,
+     "陛下，朝野崩乱、民不聊生，社稷将倾！"),
+]
+
+
+def _check_milestones(turn: int, year: int, song: dict | None) -> dict | None:
+    """检查里程碑达成和历史关口危机。返回 { achieved, crisis } 或 None。"""
+    if not song:
+        return None
+    result = {}
+    # 里程碑
+    achieved = []
+    for mid, name, cond, desc in MILESTONES:
+        try:
+            if cond(turn, year, song):
+                achieved.append({"id": mid, "name": name, "desc": desc})
+        except Exception:
+            pass
+    # 只返回本回合新达成的（简单实现：返回所有已达成的，前端去重）
+    if achieved:
+        result["achieved"] = achieved
+
+    # 历史关口危机
+    for trigger_turn, trigger_year, crisis_name, cond, msg in CRISIS_CHECKS:
+        try:
+            if cond(song):
+                # 靖康之变只在对应年份附近触发
+                if trigger_turn > 0 and abs(turn - trigger_turn) > 10:
+                    continue
+                result["crisis"] = {"name": crisis_name, "message": msg, "year": year}
+                break
+        except Exception:
+            pass
+
+    return result if result else None
+
+
 def _resolve_decay(np: dict) -> float:
     """优先用直观的 half_life(成熟半衰期, 月)换算衰减；否则用 decay。
     half_life 越大 = 越"大后期"(效果积累越慢、越晚显威)。"""
@@ -216,6 +284,9 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
             if war.annex_area(ch["owner"], ch["bbox"], ch.get("name", "")):
                 map_changed = True
 
+    # ---- 历史关口检查 ----
+    milestone = _check_milestones(next_turn, new_year, new_states.get(PLAYER_FACTION))
+
     return {
         "turn": next_turn,
         "year": year, "month": month,           # the month that was just simulated
@@ -235,7 +306,7 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
         "tech_completed": tech_info.get("completed"),
         "map_changed": map_changed,
         "territory_changes": result.get("territory_changes") or [],
-        # ---- 因果拆解：让玩家看清"我的政策贡献了多少" ----
         "delta_breakdown": _build_delta_breakdown(
             ongoing, changes, world_events, sim_info, PLAYER_FACTION),
+        "milestone": milestone,
     }

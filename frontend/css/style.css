@@ -296,6 +296,19 @@ button { font-family: inherit; cursor: pointer; }
   100% { background: var(--paper-2); }
 }
 
+/* Toast通知（里程碑/危机） */
+.toast {
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px);
+  z-index: 9999; padding: 12px 24px; border-radius: 12px;
+  font-size: 14px; font-weight: 600; line-height: 1.6; max-width: 500px;
+  opacity: 0; transition: all 0.35s ease; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(40,28,15,.35);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast-milestone { background: linear-gradient(135deg, #2e7d6b, #1d5749); color: #fff; border: 2px solid #6effc8; }
+.toast-crisis { background: linear-gradient(135deg, #b3261e, #8c1d17); color: #ffe9e0; border: 2px solid #ff6a55; }
+.toast-info { background: var(--paper); color: var(--ink); border: 2px solid var(--gold); }
+
 /* chronicle */
 .chron { border-left: 2px solid var(--line); margin-left: 6px; padding-left: 14px; }
 .chron-item { position: relative; margin-bottom: 16px; }

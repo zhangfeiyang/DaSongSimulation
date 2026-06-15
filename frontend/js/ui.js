@@ -399,6 +399,16 @@ const UI = {
         status.textContent = '🎉 科技突破：' + res.tech_completed + '！';
         status.className = 'turn-status tech-done';
       }
+      // 里程碑通知
+      if (res.milestone) {
+        if (res.milestone.achieved && res.milestone.achieved.length) {
+          const names = res.milestone.achieved.map(m => m.name).join('、');
+          this._showToast(`🏆 里程碑达成：${names}`, 'milestone');
+        }
+        if (res.milestone.crisis) {
+          this._showToast(`⚠️ ${res.milestone.crisis.name}：${res.milestone.crisis.message}`, 'crisis');
+        }
+      }
     } catch (e) {
       clearInterval(timer);
       status.className = 'turn-status err';
@@ -482,6 +492,20 @@ const UI = {
       card.classList.add('delta-flash', d > 0 ? 'flash-up' : 'flash-down');
       setTimeout(() => card.classList.remove('delta-flash', 'flash-up', 'flash-down'), 2500);
     });
+  },
+
+  /** Toast通知（里程碑/危机） */
+  _showToast(message, type) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type || 'info'}`;
+    el.innerHTML = message;
+    document.body.appendChild(el);
+    // 动画入场
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 400);
+    }, type === 'crisis' ? 8000 : 4000);
   },
 
   // 文言 / 白话 切换（已移除 narrative_plain——近臣奏报口吻即是最终版）
