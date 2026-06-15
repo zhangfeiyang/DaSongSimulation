@@ -35,6 +35,47 @@ const API = {
       body: JSON.stringify({ policy_text, chosen_options }),
     });
   },
+  /**
+   * Streaming turn: POST /api/turn/stream via SSE.
+   * Calls onHeartbeat() periodically while waiting, resolves with the result on completion.
+   */
+  async runTurnStream(policy_text, chosen_options, onHeartbeat) {
+    const r = await fetch('/api/turn/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policy_text, chosen_options }),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || `请求失败 (${r.status})`);
+    }
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      // Parse SSE events from buffer
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.type === 'result') return evt.data;
+            if (evt.type === 'error') throw new Error(evt.message);
+          } catch (e) {
+            if (e.message && !e.message.includes('JSON')) throw e;
+          }
+        } else if (line.startsWith(': ') || line.startsWith(':')) {
+          // SSE comment (heartbeat) — call callback
+          if (onHeartbeat) onHeartbeat();
+        }
+      }
+    }
+    throw new Error('推演连接意外断开');
+  },
   reset() { return this._json('/api/reset', { method: 'POST' }); },
   rewind(turn) { return this._json('/api/rewind/' + turn, { method: 'POST' }); },
   listSaves() { return this._json('/api/saves'); },

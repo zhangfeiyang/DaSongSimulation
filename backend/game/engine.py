@@ -26,6 +26,46 @@ BOUNDS = {
 DELTA_KEYS = list(BOUNDS.keys())
 
 
+def _build_delta_breakdown(ongoing: dict, changes: dict,
+                           world_events: list, sim_info: dict,
+                           player_key: str) -> dict:
+    """拆分大宋本回合的数值变动来源，让玩家看清因果。
+
+    返回 { stat_key: { policy_ongoing: float, llm_delta: float,
+                       world_event: float, economy: float, total: float } }
+    """
+    # 持续国策贡献
+    pol = {k: round(v, 2) for k, v in ongoing.items() if abs(v) >= 0.05 and k in BOUNDS}
+    # LLM即时delta（大宋部分）
+    llm = changes.get(player_key, {})
+    llm_d = {k: round(v, 2) for k, v in llm.items()
+             if k in BOUNDS and isinstance(v, (int, float))}
+    # 经济结算（从budget的net推断treasury变动，其余无法精确拆分则归零）
+    econ: dict = {}
+    budget = sim_info.get("player_budget") or {}
+    if budget.get("net"):
+        econ["treasury"] = round(budget["net"], 1)
+
+    # 列国异动对大宋的影响：寇边等（从world_events文本中无法精确提取数值，
+    # 这部分已在LLM delta或sim结算中体现，不再重复拆分）
+
+    all_keys = set(pol) | set(llm_d) | set(econ)
+    if not all_keys:
+        return {}
+    breakdown = {}
+    for k in all_keys:
+        p = pol.get(k, 0.0)
+        l = llm_d.get(k, 0.0)
+        e = econ.get(k, 0.0)
+        breakdown[k] = {
+            "policy_ongoing": p,
+            "llm_delta": l,
+            "economy": e,
+            "total": round(p + l + e, 2),
+        }
+    return breakdown
+
+
 def _resolve_decay(np: dict) -> float:
     """优先用直观的 half_life(成熟半衰期, 月)换算衰减；否则用 decay。
     half_life 越大 = 越"大后期"(效果积累越慢、越晚显威)。"""
@@ -196,4 +236,7 @@ def run_turn(policy_text: str, chosen_options: list[str]) -> dict:
         "tech_completed": tech_info.get("completed"),
         "map_changed": map_changed,
         "territory_changes": result.get("territory_changes") or [],
+        # ---- 因果拆解：让玩家看清"我的政策贡献了多少" ----
+        "delta_breakdown": _build_delta_breakdown(
+            ongoing, changes, world_events, sim_info, PLAYER_FACTION),
     }

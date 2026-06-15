@@ -340,22 +340,123 @@ const UI = {
 
     btn.disabled = true; btn.classList.add('loading');
     status.className = 'turn-status'; status.textContent = '';
+    // 渐进式等待提示
+    let dots = 0;
+    const timer = setInterval(() => {
+      dots = (dots + 1) % 4;
+      status.textContent = '◇ 正在推演天下大势' + '·'.repeat(dots);
+    }, 800);
+
     try {
-      const res = await API.runTurn(policy, chosen);
+      // 优先尝试SSE流式接口，不支持则降级
+      let res;
+      try {
+        res = await API.runTurnStream(policy, chosen, () => {
+          // heartbeat: keep the dot animation going
+        });
+      } catch (_) {
+        res = await API.runTurn(policy, chosen);
+      }
+      clearInterval(timer);
       document.getElementById('policyText').value = '';
-      if (res.map_changed) await GameMap.loadFactions();   // LLM 裁决的领土变更，重绘地图
+      if (res.map_changed) await GameMap.loadFactions();
       await this.refresh();
-      this.showNarrative(res);
+
+      // ❶ 核心：结果摘要直接显示在国情面板，不再弹大抽屉
+      this._showTurnResult(res);
+
       if (res.territory_changes && res.territory_changes.length) {
         const names = res.territory_changes.map(t => t.name || '').filter(Boolean).join('、');
         if (names) document.getElementById('turnStatus').textContent = '疆域有变：' + names + '（地图已更新）';
       }
+      // 科技完成通知
+      if (res.tech_completed) {
+        status.textContent = '🎉 科技突破：' + res.tech_completed + '！';
+        status.className = 'turn-status tech-done';
+      }
     } catch (e) {
+      clearInterval(timer);
       status.className = 'turn-status err';
       status.textContent = '推演失败：' + e.message + '（可在「设置」切换为离线推演试玩）';
     } finally {
       btn.disabled = false; btn.classList.remove('loading');
     }
+  },
+
+  /** ❶ 推演结果摘要：在国情面板直接展示关键变化，叙事抽屉按需展开 */
+  _showTurnResult(res) {
+    this.lastRes = res;
+    // 更新"此刻近况"卡片：一句话总评 + 因果拆解
+    const song = this.fac('song');
+    if (!song) return;
+    const prev = this.prev['song'] || {};
+
+    // 因果拆解摘要
+    const bd = res.delta_breakdown || {};
+    const breakdownLines = Object.entries(bd).filter(([, v]) => Math.abs(v.total) >= 0.05)
+      .map(([k, v]) => {
+        const label = this.statName(k);
+        const parts = [];
+        if (Math.abs(v.policy_ongoing) >= 0.05) parts.push(`国策${v.policy_ongoing > 0 ? '+' : ''}${v.policy_ongoing}`);
+        if (Math.abs(v.llm_delta) >= 0.05) parts.push(`新政${v.llm_delta > 0 ? '+' : ''}${v.llm_delta}`);
+        if (Math.abs(v.economy) >= 0.05) parts.push(`财政${v.economy > 0 ? '+' : ''}${v.economy}`);
+        const totalSign = v.total >= 0 ? '+' : '';
+        return `<span class="bd-item ${v.total >= 0 ? 'pos' : 'neg'}">${label} ${totalSign}${v.total}（${parts.join('，')}）</span>`;
+      }).join('');
+
+    // 写入此刻近况卡片
+    const noteBox = document.querySelector('.now-box');
+    if (noteBox) {
+      const verdict = res.verdict || '';
+      noteBox.querySelector('.now-text').innerHTML =
+        (verdict ? `<span class="now-verdict">${this.esc(verdict)}</span><br>` : '') +
+        this.esc(song.note || '承平无事，暂无新动向。');
+    }
+
+    // 在国情面板顶部显示摘要横幅
+    const paneState = document.getElementById('pane-state');
+    if (paneState) {
+      // 移除旧横幅
+      const old = paneState.querySelector('.turn-banner');
+      if (old) old.remove();
+      const banner = document.createElement('div');
+      banner.className = 'turn-banner';
+      const evs = (res.events || []).slice(0, 3).map(e => `<li>${e}</li>`).join('');
+      banner.innerHTML = `
+        <div class="tb-head">
+          <span class="tb-title">📜 ${this.reign(res.year)}·推演纪要</span>
+          <button class="btn ghost sm tb-detail" title="查看完整叙事">详览 ▾</button>
+        </div>
+        ${res.verdict ? `<div class="tb-verdict">${this.esc(res.verdict)}</div>` : ''}
+        ${evs ? `<ul class="tb-ev">${evs}</ul>` : ''}
+        ${breakdownLines ? `<div class="tb-breakdown">${breakdownLines}</div>` : ''}
+      `;
+      paneState.insertBefore(banner, paneState.firstChild);
+      banner.querySelector('.tb-detail').onclick = () => this.showNarrative(res);
+    }
+
+    // 高亮变化数字
+    this._highlightDeltas();
+  },
+
+  /** 高亮国情面板中有显著变化的数字 */
+  _highlightDeltas() {
+    const prev = this.prev['song'] || {};
+    const song = this.fac('song');
+    if (!song) return;
+    document.querySelectorAll('#pane-state .statcard').forEach(card => {
+      const label = card.querySelector('.k')?.textContent?.trim();
+      const k = Object.entries(this.STATS_MAIN).find(([, v]) => v.label === label);
+      if (!k) return;
+      const key = k[1].k;
+      const d = song[key] - (prev[key] || 0);
+      if (Math.abs(d) < 0.05) return;
+      const vEl = card.querySelector('.v');
+      if (!vEl) return;
+      // 闪烁动画
+      card.classList.add('delta-flash', d > 0 ? 'flash-up' : 'flash-down');
+      setTimeout(() => card.classList.remove('delta-flash', 'flash-up', 'flash-down'), 2500);
+    });
   },
 
   // 文言 / 白话 切换

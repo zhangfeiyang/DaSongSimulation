@@ -261,6 +261,36 @@ button { font-family: inherit; cursor: pointer; }
 }
 .turn-status { margin-top: 10px; font-size: 13px; color: var(--ink-soft); min-height: 18px; }
 .turn-status.err { color: var(--bad); }
+.turn-status.tech-done { color: var(--jade); font-weight: 700; }
+
+/* 推演结果摘要横幅（显示在国情面板顶部） */
+.turn-banner {
+  background: linear-gradient(180deg, #fff8e8, #f5edda);
+  border: 1px solid var(--gold-2); border-left: 4px solid var(--vermilion);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+  animation: bannerFade 0.35s ease;
+}
+@keyframes bannerFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.tb-head { display: flex; justify-content: space-between; align-items: center; }
+.tb-title { font-weight: 700; font-size: 14px; color: var(--vermilion-2); letter-spacing: 1px; }
+.tb-verdict { font-size: 13px; color: var(--ink); margin-top: 5px; line-height: 1.6; font-style: italic; }
+.tb-ev { font-size: 12.5px; color: var(--ink-soft); margin: 5px 0 0; padding-left: 18px; line-height: 1.6; }
+.tb-ev li { margin: 2px 0; }
+.tb-breakdown { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.bd-item { font-size: 11.5px; padding: 2px 8px; border-radius: 10px; }
+.bd-item.pos { background: rgba(46,125,107,.12); color: #1d5749; border: 1px solid #8fc7b8; }
+.bd-item.neg { background: rgba(179,38,30,.10); color: var(--vermilion-2); border: 1px solid #e0a59f; }
+.now-verdict { font-weight: 700; color: var(--vermilion-2); }
+
+/* delta闪烁动画 */
+.statcard.delta-flash { animation: deltaFlash 0.6s ease; }
+.statcard.flash-up .v { color: var(--good) !important; }
+.statcard.flash-down .v { color: var(--bad) !important; }
+@keyframes deltaFlash {
+  0% { background: var(--paper-2); }
+  30% { background: rgba(201,162,75,.22); }
+  100% { background: var(--paper-2); }
+}
 
 /* chronicle */
 .chron { border-left: 2px solid var(--line); margin-left: 6px; padding-left: 14px; }

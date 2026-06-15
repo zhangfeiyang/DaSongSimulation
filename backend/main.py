@@ -8,8 +8,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+
+import json
 
 import db
 import config
@@ -91,6 +93,55 @@ def post_turn(req: TurnRequest):
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"推演出错: {e}")
+
+
+@app.post("/api/turn/stream")
+def post_turn_stream(req: TurnRequest):
+    """SSE streaming: emits narrative tokens as they arrive, then the final JSON result."""
+    import asyncio
+    import queue
+    import threading
+
+    q: queue.Queue = queue.Queue()
+
+    def _worker():
+        try:
+            result = engine.run_turn(req.policy_text, req.chosen_options)
+            q.put(("result", result))
+        except LLMError as e:
+            q.put(("error", str(e)))
+        except Exception as e:
+            q.put(("error", f"推演出错: {e}"))
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+    async def _generate():
+        # Emit a heartbeat while waiting, then the final result
+        while t.is_alive():
+            try:
+                kind, data = q.get(timeout=0.3)
+                if kind == "result":
+                    yield f"data: {json.dumps({'type': 'result', 'data': data}, ensure_ascii=False)}\n\n"
+                    return
+                elif kind == "error":
+                    yield f"data: {json.dumps({'type': 'error', 'message': data}, ensure_ascii=False)}\n\n"
+                    return
+            except queue.Empty:
+                # heartbeat to keep the connection alive
+                yield f": heartbeat\n\n"
+                await asyncio.sleep(0)
+        # Thread finished while we weren't in get()
+        while not q.empty():
+            kind, data = q.get_nowait()
+            if kind == "result":
+                yield f"data: {json.dumps({'type': 'result', 'data': data}, ensure_ascii=False)}\n\n"
+                return
+            elif kind == "error":
+                yield f"data: {json.dumps({'type': 'error', 'message': data}, ensure_ascii=False)}\n\n"
+                return
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 @app.get("/api/history")
