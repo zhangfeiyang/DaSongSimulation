@@ -164,7 +164,7 @@ const UI = {
       <div class="dash-head">
         <h3><span class="dot" style="background:${f.color}"></span>${f.name}
           ${isPlayer ? '<span style="color:var(--vermilion);font-size:13px">（朕躬）</span>' : ''}</h3>
-        <span class="info">国库 ${Math.round(f.treasury)} 万贯</span>
+        <span class="info">国库 ${Math.round(f.treasury)} 万贯${this._treasuryContext(f)}</span>
       </div>
       <div class="faction-tag">${this.esc(f.info || '')}</div>
       <div class="now-box">
@@ -219,6 +219,19 @@ const UI = {
     if (r >= -10) return '中立'; if (r >= -50) return '紧张'; return '敌对';
   },
 
+  /** 国库参照：与去年/主要对手对比，给玩家直觉 */
+  _treasuryContext(f) {
+    if (!f.is_player) return '';
+    const prev = this.prev['song'];
+    if (!prev) return '';
+    const d = f.treasury - prev.treasury;
+    const pct = prev.treasury > 0 ? (d / prev.treasury * 100).toFixed(0) : '';
+    const liao = this.fac('liao');
+    const cmp = liao ? `，为辽国${liao.treasury > 0 ? (f.treasury / liao.treasury).toFixed(1) : '?'}倍` : '';
+    const trend = d >= 0 ? `<span style="color:var(--good)">↑${pct}%</span>` : `<span style="color:var(--bad)">↓${Math.abs(pct)}%</span>`;
+    return ` <small style="font-size:11px;color:var(--ink-soft)">较去年${trend}${cmp}</small>`;
+  },
+
   async drawSpark(key) {
     let series = [];
     try { series = await API.series(key); } catch { return; }
@@ -230,9 +243,9 @@ const UI = {
       ctx.fillStyle = '#9b8e6e'; ctx.font = '12px serif';
       ctx.fillText('（推演数回合后显示走势）', 12, 34); return;
     }
-    const metrics = [['economy', '#b3261e'], ['military', '#2e7d6b'], ['tech', '#c9a24b']];
+    const metrics = [['economy', '#b3261e', '经济'], ['military', '#2e7d6b', '军力'], ['tech', '#c9a24b', '科技']];
     const W = cv.width, H = cv.height, pad = 6;
-    metrics.forEach(([m, color]) => {
+    metrics.forEach(([m, color, label]) => {
       const vals = series.map(s => s[m]);
       const lo = Math.min(...vals), hi = Math.max(...vals);
       const rng = hi - lo || 1;
@@ -243,6 +256,14 @@ const UI = {
         i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
       });
       ctx.stroke();
+    });
+    // 图例标注（右下角）
+    const legendX = W - 8;
+    metrics.forEach(([m, color, label], i) => {
+      const y = 10 + i * 14;
+      ctx.fillStyle = color; ctx.font = '10px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(label, legendX, y);
     });
   },
 
