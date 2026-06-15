@@ -13,15 +13,19 @@ const GameMap = {
     this.onSelect = onSelect;
     this.map = L.map('map', {
       worldCopyJump: true,
-      minZoom: 2, maxZoom: 6,
+      minZoom: 2, maxZoom: 8,
       center: [30, 95], zoom: 3,
       zoomControl: true, attributionControl: false,
     });
 
-    // Neutral land basemap (vector, no tiles -> works offline).
+    // Neutral land basemap (high-res vector, no tiles -> works offline).
     const world = await fetch('/api/world.geojson').then(r => r.json());
-    L.geoJSON(world, {
-      style: { color: '#b7a988', weight: 0.6, fillColor: '#e9dcc0', fillOpacity: 1 },
+    this._basemap = L.geoJSON(world, {
+      style: { color: '#a69470', weight: 0.5, fillColor: '#e8dcc4', fillOpacity: 0.95 },
+    }).addTo(this.map);
+    // Coastline glow (subtle outer border for depth)
+    this._coastGlow = L.geoJSON(world, {
+      style: { color: '#8ba8b5', weight: 1.2, fillColor: 'transparent', fillOpacity: 0, opacity: 0.35 },
     }).addTo(this.map);
 
     this.labelLayer = L.layerGroup().addTo(this.map);
@@ -47,6 +51,8 @@ const GameMap = {
         layer.on('click', () => self.onSelect && self.onSelect(key));
       },
     }).addTo(this.map);
+    // Bring faction layer on top of basemap for crisp borders
+    this.factionLayer.bringToFront();
     this.updateWarVisuals();
   },
 
@@ -55,21 +61,31 @@ const GameMap = {
     if (!p) return { color: '#888', weight: 1, fillOpacity: 0.3, dashArray: '' };
     const s = this.statesByKey[p.key];
     const baseFill = p.is_player ? 0.62 : 0.42;
-    const base = { color: p.color, weight: 1.5, fillColor: p.color, fillOpacity: baseFill, dashArray: '' };
+    const base = { color: this._darken(p.color, 0.3), weight: 1.2, fillColor: p.color, fillOpacity: baseFill, dashArray: '' };
     if (!s) return base;
     if (s.occupied) {                                   // 沦陷：灰化、斜纹
       return { color: '#4a3328', weight: 1.4, fillColor: '#6e5f4e', fillOpacity: 0.26, dashArray: '3 5' };
     }
     if (s.at_war) {                                     // 交战：朱红粗虚线（边塞告急）
-      return { color: '#e8261a', weight: 3, fillColor: p.color, fillOpacity: 0.58, dashArray: '8 4' };
+      return { color: '#e8261a', weight: 2.8, fillColor: p.color, fillOpacity: 0.58, dashArray: '8 4' };
     }
     if (s.relation <= -25) {                            // 敌对：橙边
-      return { color: '#d06a1a', weight: 2.3, fillColor: p.color, fillOpacity: 0.5, dashArray: '' };
+      return { color: '#d06a1a', weight: 2, fillColor: p.color, fillOpacity: 0.5, dashArray: '' };
     }
     if (s.relation >= 50) {                             // 亲善：翠边
-      return { color: '#2e7d6b', weight: 2, fillColor: p.color, fillOpacity: 0.48, dashArray: '' };
+      return { color: '#2e7d6b', weight: 1.8, fillColor: p.color, fillOpacity: 0.48, dashArray: '' };
     }
     return base;
+  },
+
+  // darken a hex color for borders
+  _darken(hex, amt) {
+    if (!hex || hex[0] !== '#') return '#333';
+    let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    r = Math.max(0, Math.round(r * (1 - amt)));
+    g = Math.max(0, Math.round(g * (1 - amt)));
+    b = Math.max(0, Math.round(b * (1 - amt)));
+    return '#' + [r,g,b].map(c => c.toString(16).padStart(2,'0')).join('');
   },
 
   _restyle(key) {

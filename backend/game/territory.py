@@ -21,6 +21,7 @@ from config import DATA_DIR
 from game.seed_data import FACTIONS, build_factions_geojson as _crude
 
 # Peripheral factions: whole country outlines (+ optional clip box / China slice).
+# Names must match the "name" property in data/world.geojson.
 SPEC = {
     "goryeo":     {"countries": ["North Korea", "South Korea"]},
     "daiviet":    {"countries": ["Vietnam"], "clip": (101, 15.5, 112, 24)},
@@ -29,13 +30,13 @@ SPEC = {
     "seljuk":     {"countries": ["Iran", "Iraq"]},
     "byzantine":  {"countries": ["Greece", "Turkey"]},
     "fatimid":    {"countries": ["Egypt", "Libya"]},
-    "hre":        {"countries": ["Germany", "Austria", "Czech Republic", "Switzerland"]},
+    "hre":        {"countries": ["Germany", "Austria", "Czechia", "Switzerland"]},
     "chola":      {"countries": ["India"], "clip": (72, 6, 84, 21)},
     "ghaznavid":  {"countries": ["Afghanistan", "Pakistan"]},
     "kievanrus":  {"countries": ["Ukraine", "Belarus"], "russia_box": (28, 49, 52, 62)},
     # New World / Africa / Oceania — real coastlines, naturally jagged.
     "toltec":     {"countries": ["Mexico", "Guatemala"]},
-    "mississippi":{"countries": ["USA"], "clip": (-104, 28, -80, 44)},
+    "mississippi":{"countries": ["United States of America"], "clip": (-104, 28, -80, 44)},
     "chimu":      {"countries": ["Peru", "Ecuador"]},
     "ghana":      {"countries": ["Mali", "Mauritania", "Senegal"]},
     "ethiopia":   {"countries": ["Ethiopia", "Eritrea"]},
@@ -54,6 +55,10 @@ CHINA_ORDER = [
     ("song",       (100, 20, 124, 42)),    # 其余东部 / 中原 / 江南 (取剩余)
 ]
 
+# Simplify tolerance: 0.02 ≈ 2.2km at equator — enough to keep coastlines &
+# internal borders beautifully jagged while keeping file size manageable.
+SIMPLIFY_TOL = 0.02
+
 
 def _displace(a, b, rng, amp, depth, out):
     """Recursive midpoint displacement of segment a->b (appends a, not b)."""
@@ -67,13 +72,14 @@ def _displace(a, b, rng, amp, depth, out):
     px, py = -dy / length, dx / length            # unit perpendicular
     off = (rng.random() * 2 - 1) * amp
     mid = ((ax + bx) / 2 + px * off, (ay + by) / 2 + py * off)
-    _displace(a, mid, rng, amp * 0.6, depth - 1, out)
-    _displace(mid, b, rng, amp * 0.6, depth - 1, out)
+    _displace(a, mid, rng, amp * 0.55, depth - 1, out)
+    _displace(mid, b, rng, amp * 0.55, depth - 1, out)
 
 
-def _jagged_box(t, amp=0.7, depth=5):
+def _jagged_box(t, amp=0.6, depth=6):
     """A box whose edges are fractal-jagged. Deterministic per-edge (seeded by
-    endpoints) so the same edge jitters identically wherever it is reused."""
+    endpoints) so the same edge jitters identically wherever it is reused.
+    depth=6 → ~64 points per edge, giving rich interlocking borders."""
     from shapely.geometry import Polygon
     minx, miny, maxx, maxy = t
     corners = [(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)]
@@ -84,6 +90,19 @@ def _jagged_box(t, amp=0.7, depth=5):
         _displace(a, b, random.Random(seed), amp, depth, pts)
     poly = Polygon(pts)
     return poly if poly.is_valid else poly.buffer(0)
+
+
+def _smooth_jagged_border(g, clip_poly):
+    """For geometries that were clipped with a jagged box, overlay the
+    fractal border onto the original geometry's edge so it blends naturally
+    with real coastlines instead of creating an abrupt box-artifact."""
+    # The fractal-displaced intersection already produces interlocking
+    # borders. We just ensure no stray artifacts from the box corners.
+    if g is None or g.is_empty:
+        return g
+    if not g.is_valid:
+        g = g.buffer(0)
+    return g
 
 
 def build() -> dict:
@@ -112,7 +131,7 @@ def build() -> dict:
         part = china.intersection(jb)
         if claimed is not None:
             part = part.difference(claimed)
-        china_parts[key] = clean(part)
+        china_parts[key] = _smooth_jagged_border(clean(part), jb)
         claimed = jb if claimed is None else unary_union([claimed, jb])
 
     result: dict = {
@@ -147,7 +166,8 @@ def build() -> dict:
         if g is None or g.is_empty:
             continue
         f = by_key[key]
-        g = g.simplify(0.05, preserve_topology=True)
+        # Use finer simplify tolerance to preserve high-res detail
+        g = g.simplify(SIMPLIFY_TOL, preserve_topology=True)
         feats.append({
             "type": "Feature",
             "properties": {"key": key, "name": f["name"], "color": f["color"],

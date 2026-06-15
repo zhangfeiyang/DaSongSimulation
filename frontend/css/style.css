@@ -97,9 +97,9 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ---------- Main ---------- */
 #main { flex: 1; display: flex; min-height: 0; }
-#mapcol { position: relative; flex: 1; min-width: 0; background: #aa9b78; }
-#map { position: absolute; inset: 0; background: #9fc3d6; }
-.leaflet-container { background: #9fc3d6; font-family: inherit; }
+#mapcol { position: relative; flex: 1; min-width: 0; background: #6b94a8; }
+#map { position: absolute; inset: 0; background: #88b4c8; }
+.leaflet-container { background: #88b4c8; font-family: inherit; }
 
 .legend {
   position: absolute; left: 12px; bottom: 12px; z-index: 600;
