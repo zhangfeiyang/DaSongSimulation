@@ -110,6 +110,9 @@ button { font-family: inherit; cursor: pointer; }
 .legend .lg-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer; }
 .legend .sw { width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(0,0,0,.3); }
 .legend .lg-title { font-weight: 700; margin-bottom: 4px; color: var(--vermilion-2); }
+.legend .lg-war { background: rgba(232,38,26,.08); border-left: 3px solid var(--vermilion); padding-left: 4px; }
+.legend .lg-host { border-left: 3px solid #d06a1a; padding-left: 4px; }
+.legend .lg-occ { opacity: .55; }
 
 .map-tip {
   position: absolute; z-index: 700; pointer-events: none;

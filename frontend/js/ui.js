@@ -59,6 +59,7 @@ const UI = {
   async refresh() {
     this.state = await API.state();
     GameMap.setStates(this.state.factions);
+    GameMap.updateWarVisuals();
     this.renderTop();
     this.renderLegend();
     this.renderState();
@@ -114,9 +115,11 @@ const UI = {
   },
 
   renderLegend() {
-    const rows = this.state.factions.map(f =>
-      `<div class="lg-row" data-key="${f.faction_key}">
-        <span class="sw" style="background:${f.color}"></span>${f.name}</div>`).join('');
+    const rows = this.state.factions.map(f => {
+      const cls = f.occupied ? 'lg-occ' : f.at_war ? 'lg-war' : f.relation <= -25 ? 'lg-host' : '';
+      return `<div class="lg-row ${cls}" data-key="${f.faction_key}">
+        <span class="sw" style="background:${f.color}"></span>${f.name}${f.at_war ? ' ⚔' : ''}</div>`;
+    }).join('');
     const el = document.getElementById('maplegend');
     el.innerHTML = `<div class="lg-title">天下列国</div>${rows}`;
     el.querySelectorAll('.lg-row').forEach(r =>
